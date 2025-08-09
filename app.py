@@ -83,14 +83,26 @@ else:
     st.sidebar.warning("Please provide a Gemini API Key.")
 
 st.sidebar.subheader("Cài đặt Sinh nội dung & Hình ảnh")
-text_model_name = st.sidebar.selectbox("Chọn mô hình sinh văn bản:", text_models, disabled=not genai_client)
+# Set default text model to gemini-2.5-flash if available
+default_text_model_name = "gemini-2.5-flash"
+try:
+    default_text_index = text_models.index(default_text_model_name)
+except ValueError:
+    default_text_index = 0 # Fallback to the first model
+text_model_name = st.sidebar.selectbox(
+    "Chọn mô hình sinh văn bản:", 
+    text_models, 
+    index=default_text_index, 
+    disabled=not genai_client
+)
 image_model_name = st.sidebar.selectbox("Chọn mô hình sinh ảnh:", image_models, disabled=not genai_client)
 
 st.sidebar.subheader("Cài đặt Âm thanh (Text-to-Speech)")
 tts_enabled = st.sidebar.checkbox("Bật tính năng chuyển văn bản thành giọng nói", value=True)
+# Set default TTS service to Gemini
 tts_service = st.sidebar.selectbox(
     "Chọn dịch vụ TTS:",
-    ["Google Cloud TTS", "Google AI Studio (Gemini)"],
+    ["Google AI Studio (Gemini)", "Google Cloud TTS"],
     disabled=not tts_enabled
 )
 tts_style_instruction = st.sidebar.text_area(
@@ -126,11 +138,6 @@ with tab1:
         try:
             base_name = os.path.splitext(uploaded_file.name)[0].replace('.slide','')
             output_dir = os.path.join(os.getcwd(), base_name)
-
-            if os.path.exists(output_dir): shutil.rmtree(output_dir)
-            os.makedirs(os.path.join(output_dir, "images"))
-            if tts_enabled: os.makedirs(os.path.join(output_dir, "audio"))
-
             output_pptx_path = os.path.join(output_dir, f"{base_name}.pptx")
             st.info(f"Kết quả sẽ được lưu tại: {output_dir}")
             markdown_text = uploaded_file.getvalue().decode("utf-8")
@@ -147,6 +154,11 @@ with tab1:
                 if not genai_client:
                     st.error("Không thể tạo. Vui lòng chọn một profile API hợp lệ.")
                     st.stop()
+
+                # --- Clean up and setup directories only when generation starts ---
+                if os.path.exists(output_dir): shutil.rmtree(output_dir)
+                os.makedirs(os.path.join(output_dir, "images"))
+                if tts_enabled: os.makedirs(os.path.join(output_dir, "audio"))
 
                 progress_bar = st.progress(0)
                 processed_slides = []
@@ -204,8 +216,33 @@ with tab1:
                     create_presentation(output_pptx_path, processed_slides, DEFAULT_TITLE_BG, DEFAULT_CONTENT_BG)
                 
                 st.success("Tạo bài giảng thành công!")
-                with open(output_pptx_path, "rb") as f:
-                    st.download_button(f"Tải về {os.path.basename(output_pptx_path)}", f.read(), f"{base_name}.pptx", key="download_tab1")
+                
+                # --- Create ZIP archive ---
+                archive_path_base = os.path.join(os.getcwd(), f"{base_name}_lecture_package")
+                archive_path_zip = shutil.make_archive(archive_path_base, 'zip', output_dir)
+                
+                # --- Display Download Buttons ---
+                col1, col2 = st.columns(2)
+                with col1:
+                    with open(output_pptx_path, "rb") as f:
+                        st.download_button(
+                            label=f"Tải về {os.path.basename(output_pptx_path)}",
+                            data=f.read(),
+                            file_name=f"{base_name}.pptx",
+                            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                            key="download_pptx_tab1"
+                        )
+                with col2:
+                    with open(archive_path_zip, "rb") as f:
+                        st.download_button(
+                            label="Tải về toàn bộ bài giảng (.zip)",
+                            data=f.read(),
+                            file_name=f"{base_name}_lecture_package.zip",
+                            mime="application/zip",
+                            key="download_zip_tab1"
+                        )
+                # The temporary zip file will be cleaned up on the next run
+
 
         except Exception as e:
             st.error(f"Đã xảy ra lỗi không mong muốn trong Tab 1: {e}")
