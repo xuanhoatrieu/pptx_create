@@ -59,6 +59,29 @@
     - File `.pptx` được lưu vào thư mục output.
     - Giao diện hiển thị thông báo thành công và một nút để người dùng tải file về máy.
 
+## Hệ thống Người dùng và Xác thực
+
+- **Xác thực người dùng:**
+    - Hỗ trợ **Đăng ký** và **Đăng nhập** cho người dùng mới và người dùng hiện tại.
+    - Sử dụng `st.session_state` để quản lý trạng thái đăng nhập trong suốt phiên làm việc.
+    - Giao diện chính của ứng dụng chỉ hiển thị sau khi người dùng đã đăng nhập thành công.
+
+- **Quản lý API Key cho từng người dùng:**
+    - Mỗi người dùng có thể **lưu và cập nhật** Google API Key của riêng mình.
+    - API key được liên kết với tài khoản của họ và được tự động sử dụng cho tất cả các tác vụ (sinh nội dung, ảnh, âm thanh).
+    - Loại bỏ hệ thống "profile" tĩnh dựa trên file `secrets.toml`.
+
+- **Lưu trữ an toàn:**
+    - Sử dụng cơ sở dữ liệu **SQLite (`users.db`)** để lưu trữ thông tin người dùng.
+    - **Mật khẩu** được băm (hashed) bằng `bcrypt` trước khi lưu.
+    - **API Key** được mã hóa (encrypted) bằng `cryptography` để đảm bảo an toàn tuyệt đối, ngay cả khi có quyền truy cập vào file database.
+
+- **Luồng hoạt động mới:**
+    1.  **Khởi động:** Người dùng được chào đón bằng màn hình đăng nhập/đăng ký.
+    2.  **Đăng nhập:** Sau khi xác thực thành công, sidebar sẽ hiển thị thông tin người dùng và một trường để quản lý API key.
+    3.  **Sử dụng:** Ứng dụng sẽ tự động lấy API key đã được mã hóa của người dùng, giải mã và sử dụng nó để tương tác với các dịch vụ của Google.
+    4.  **Đăng xuất:** Người dùng có thể đăng xuất để kết thúc phiên làm việc.
+
 ## Ý tưởng phát triển trong tương lai
 
 - **Xem trước kết quả tức thì:**

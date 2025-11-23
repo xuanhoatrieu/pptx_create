@@ -3,3 +3,5 @@ google-generativeai
 python-pptx
 google-cloud-texttospeech
 requests
+bcrypt
+cryptography

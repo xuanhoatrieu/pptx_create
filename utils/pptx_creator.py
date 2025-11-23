@@ -40,6 +40,7 @@ def create_presentation(output_path, slides_data, title_bg, content_bg):
         title_frame = title_shape.text_frame
         p = title_frame.paragraphs[0]
         p.text = slides_data[0].get("title", "")
+        p.font.name = "Arial"
         p.font.size = Pt(44)
         p.font.bold = True
         p.font.color.rgb = RGBColor(255, 255, 255)
@@ -51,13 +52,14 @@ def create_presentation(output_path, slides_data, title_bg, content_bg):
             subtitle_frame = subtitle_shape.text_frame
             p_sub = subtitle_frame.paragraphs[0]
             p_sub.text = slides_data[0].get("subtitle")
+            p_sub.font.name = "Arial"
             p_sub.font.size = Pt(22)
             p_sub.font.color.rgb = RGBColor(255, 255, 255)
             p_sub.alignment = PP_ALIGN.CENTER
 
     # --- Content Slides ---
     for i, slide_info in enumerate(slides_data):
-        # Special handling for the first slide's audio
+        # Special handling for the first slide's audio and to skip its content processing
         if i == 0:
             if slide_info.get("audio_path"):
                 try:
@@ -70,56 +72,111 @@ def create_presentation(output_path, slides_data, title_bg, content_bg):
                     tree.addprevious(etree.fromstring(f'<p:cTn {nsdecls("p")} id="1"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn>'))
                 except Exception as e:
                     print(f"Could not add audio to title slide {audio_path}: {e}")
-            # If there's only one slide, we're done after this.
-            if len(slides_data) == 1:
-                break
-            else:
-                continue
+            if len(slides_data) == 1: break
+            else: continue
 
-        content_layout = prs.slide_layouts[6]
-        slide = prs.slides.add_slide(content_layout)
-        add_background(slide, content_bg)
+        # --- Agenda Slide (Slide 2) ---
+        if i == 1:
+            slide_layout = prs.slide_layouts[6] # Use a blank layout
+            slide = prs.slides.add_slide(slide_layout)
+            add_background(slide, content_bg)
 
-        # Title, Content, Image, Notes...
-        title_shape = slide.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(9), Inches(0.8))
-        p = title_shape.text_frame.paragraphs[0]
-        p.text = slide_info.get("title", "")
-        p.font.size = Pt(28)
-        p.font.color.rgb = RGBColor(255, 255, 255)
-        p.alignment = PP_ALIGN.CENTER
+            # Title (manual textbox for consistent positioning)
+            title_shape = slide.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(9), Inches(0.8))
+            p_title = title_shape.text_frame.paragraphs[0]
+            p_title.text = "Nội dung bài học"
+            p_title.font.name = "Arial"
+            p_title.font.size = Pt(28)
+            p_title.font.color.rgb = RGBColor(255, 255, 255)
+            p_title.alignment = PP_ALIGN.CENTER
+            
+            bullets = slide_info.get("bullets", [])
+            mid_point = (len(bullets) + 1) // 2
 
-        if slide_info.get("image_path"):
-            content_shape = slide.shapes.add_textbox(Inches(0.5), Inches(1.2), Inches(4.5), Inches(4.0))
-            try:
-                slide.shapes.add_picture(slide_info["image_path"], Inches(5.5), Inches(1.5), height=Inches(3))
-            except Exception as e:
-                print(f"Could not add picture {slide_info['image_path']}: {e}")
+            # Left Column (manual textbox to avoid bullets)
+            left_col_shape = slide.shapes.add_textbox(Inches(0.5), Inches(1.2), Inches(4.5), Inches(4.0))
+            tf_left = left_col_shape.text_frame
+            tf_left.clear() # Remove default paragraph
+            tf_left.word_wrap = True
+            for bullet in bullets[:mid_point]:
+                p = tf_left.add_paragraph()
+                p.text = f'{bullet.get("emoji", "")} {bullet.get("point")}'
+                p.font.name = "Arial"
+                p.font.size = Pt(24)
+                p.font.color.rgb = RGBColor(58, 102, 77)
+                p.space_after = Pt(16)
+
+            # Right Column (manual textbox to avoid bullets)
+            right_col_shape = slide.shapes.add_textbox(Inches(5.0), Inches(1.2), Inches(4.5), Inches(4.0))
+            tf_right = right_col_shape.text_frame
+            tf_right.clear() # Remove default paragraph
+            tf_right.word_wrap = True
+            for bullet in bullets[mid_point:]:
+                p = tf_right.add_paragraph()
+                p.text = f'{bullet.get("emoji", "")} {bullet.get("point")}'
+                p.font.name = "Arial"
+                p.font.size = Pt(24)
+                p.font.color.rgb = RGBColor(58, 102, 77)
+                p.space_after = Pt(16)
+
+        # --- Regular Content Slides (from slide 3 onwards) ---
         else:
-            content_shape = slide.shapes.add_textbox(Inches(0.5), Inches(1.2), Inches(9), Inches(4.0))
-        
-        content_frame = content_shape.text_frame
-        content_frame.word_wrap = True
+            content_layout = prs.slide_layouts[6] # Blank layout
+            slide = prs.slides.add_slide(content_layout)
+            add_background(slide, content_bg)
 
-        for bullet in slide_info.get("bullets", []):
-            p_point = content_frame.add_paragraph()
-            if bullet.get("point"):
-                p_point.text = f'{bullet.get("emoji", "")} {bullet.get("point")}'
-                p_point.font.bold = True
-                p_point.font.size = Pt(22)
-                p_point.space_after = Pt(2)
-                p_desc = content_frame.add_paragraph()
-                p_desc.text = bullet["description"]
-                p_desc.font.size = Pt(18)
-                p_desc.space_before = Pt(0)
-                p_desc.space_after = Pt(8)
-                p_desc.level = 1
+            # Title
+            title_shape = slide.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(9), Inches(0.8))
+            p = title_shape.text_frame.paragraphs[0]
+            p.text = slide_info.get("title", "")
+            p.font.name = "Arial"
+            p.font.size = Pt(28)
+            p.font.color.rgb = RGBColor(255, 255, 255)
+            p.alignment = PP_ALIGN.CENTER
+
+            # Determine layout based on image presence
+            if slide_info.get("image_path"):
+                content_shape = slide.shapes.add_textbox(Inches(0.5), Inches(1.2), Inches(4.5), Inches(4.0))
+                try:
+                    slide.shapes.add_picture(slide_info["image_path"], Inches(5.5), Inches(1.5), height=Inches(3))
+                except Exception as e:
+                    print(f"Could not add picture {slide_info['image_path']}: {e}")
             else:
-                p_point.text = bullet["description"]
-                p_point.font.size = Pt(20)
-            p_point.font.color.rgb = RGBColor(58, 102, 77)
+                content_shape = slide.shapes.add_textbox(Inches(0.5), Inches(1.2), Inches(9), Inches(4.0))
+            
+            content_frame = content_shape.text_frame
+            content_frame.clear() # Remove default paragraph to prevent extra line
+            content_frame.word_wrap = True
 
+            # Add bullets
+            for bullet in slide_info.get("bullets", []):
+                p_point = content_frame.add_paragraph()
+                p_point.font.name = "Arial"
+                if bullet.get("point"):
+                    p_point.text = f'{bullet.get("emoji", "")} {bullet.get("point")}'
+                    p_point.font.bold = True
+                    p_point.font.size = Pt(22)
+                    p_point.space_after = Pt(2)
+                    p_desc = content_frame.add_paragraph()
+                    p_desc.text = bullet["description"]
+                    p_desc.font.name = "Arial"
+                    p_desc.font.size = Pt(18)
+                    p_desc.space_before = Pt(0)
+                    p_desc.space_after = Pt(8)
+                    p_desc.level = 1
+                else:
+                    p_point.text = bullet["description"]
+                    p_point.font.size = Pt(20)
+                p_point.font.color.rgb = RGBColor(58, 102, 77)
+
+        # Add notes and audio to all content slides (including agenda)
         if slide_info.get("notes"):
-            slide.notes_slide.notes_text_frame.text = slide_info["notes"]
+            notes_frame = slide.notes_slide.notes_text_frame
+            notes_frame.clear() # Clear default text
+            p_notes = notes_frame.add_paragraph()
+            p_notes.text = slide_info["notes"]
+            p_notes.font.name = "Arial"
+
 
         if slide_info.get("audio_path"):
             try:
